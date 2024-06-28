@@ -58,69 +58,80 @@ router.put("/update/:id", async (req, res) => {
 
 
 router.get('/findNearestDoctors', async (req, res) => {
-    const { userLongitude, userLatitude, categoryId } = req.query;
-  
-    try {
-      if (!userLongitude || !userLatitude || !categoryId) {
-        return res.status(400).json({
-          message: "Longitude, latitude, and categoryId are required",
-          success: false
-        });
-      }
-  
-      const parsedLongitude = parseFloat(userLongitude);
-      const parsedLatitude = parseFloat(userLatitude);
-  
-      if (isNaN(parsedLongitude) || isNaN(parsedLatitude)) {
-        return res.status(400).json({
-          message: "Invalid longitude or latitude. Please provide numerical values.",
-          success: false
-        });
-      }
-      const category= await Category.findById({_id:categoryId}).populate('doctors')
-      
-      
-      const nearestDoctorsMap={}
-      category.doctors.forEach((doctor)=>{
-        const doctorLongitude=doctor.longitude;
-        const doctorLatitude=doctor.latitude;
-        const distance=calculateDistance(doctorLatitude,userLatitude,doctorLongitude,userLongitude)
-        nearestDoctorsMap[doctor]=distance
-      })
-      const sortedDoctors = Object.entries(nearestDoctorsMap)
-        .sort((a, b) => a[1] - b[1]);
+  const { userLongitude, userLatitude, categoryId } = req.query;
 
-      return res.status(200).json({
-        message: "Nearest doctors found successfully",
-        doctors: sortedDoctors,
-        success: true
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: "Failed to find nearest doctors",
-        error: error.message,
+  try {
+    if (!userLongitude || !userLatitude || !categoryId) {
+      return res.status(400).json({
+        message: "Longitude, latitude, and categoryId are required",
         success: false
       });
     }
-  });
-  const  calculateDistance=(lat1, lon1, lat2, lon2)=> {
-    const RADIUS_OF_EARTH = 6371; 
-  
-    const latDistance = Math.radians(lat2 - lat1);
-    const lonDistance = Math.radians(lon2 - lon1);
-  
-    const a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-              + Math.cos(Math.radians(lat1)) * Math.cos(Math.radians(lat2))
-              * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-  
-    const formula = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = RADIUS_OF_EARTH * formula;
-  
-    return distance;
+
+    const parsedLongitude = parseFloat(userLongitude);
+    const parsedLatitude = parseFloat(userLatitude);
+
+    if (isNaN(parsedLongitude) || isNaN(parsedLatitude)) {
+      return res.status(400).json({
+        message: "Invalid longitude or latitude. Please provide numerical values.",
+        success: false
+      });
+    }
+
+    const category = await Category.findById({ _id: categoryId }).populate('doctors');
+
+    if (!category || !category.doctors.length) {
+      return res.status(404).json({
+        message: "No doctors found for the specified category",
+        success: false
+      });
+    }
+
+    const nearestDoctors = [];
+    category.doctors.forEach((doctor) => {
+      const doctorLongitude = doctor.longitude;
+      const doctorLatitude = doctor.latitude;
+      const distance = calculateDistance(doctorLatitude, userLatitude, doctorLongitude, userLongitude);
+      const doctorData = {
+        _id: doctor._id,
+        name: doctor.name,
+        profileImage: doctor.profileImage,
+        address: doctor.address,
+        mobileNumber: doctor.mobileNumber,
+        distance: distance.toFixed(2) 
+      };
+
+      nearestDoctors.push(doctorData);
+    });
+
+    return res.status(200).json({
+      message: "Nearest doctors found successfully",
+      doctors: nearestDoctors,
+      success: true
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to find nearest doctors",
+      error: error.message,
+      success: false
+    });
   }
-  Math.radians = function(degrees) {
-	return degrees * Math.PI / 180;
-}
+});
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const RADIUS_OF_EARTH = 6371; 
+  const latDistance = lat2 - lat1;
+  const lonDistance = lon2 - lon1;
+
+  const a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+            + Math.cos(lat1) * Math.cos(lat2)
+            * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+  const formula = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = RADIUS_OF_EARTH * formula;
+
+  return distance;
+};
+
 
 
 router.get("/bookings/all/:userId", async (req, res) => {
