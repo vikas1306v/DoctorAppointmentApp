@@ -168,9 +168,11 @@ router.get('/all/:doctorId', async (req, res) => {
         });
         const pending = bookings.filter(booking => booking.status === "pending");
         const approved = bookings.filter(booking => booking.status === "approved");
+        const rejected = bookings.filter(booking => booking.status === "rejected");
         return res.status(200).json({
             pending: pending,
             approved: approved,
+            rejected: rejected,
             success: true
         });
     } catch (e) {
